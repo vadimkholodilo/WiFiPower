@@ -1,0 +1,242 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width; initial-scale=1.0; maximum-scale=1.0;">
+<title>
+Умная Wi-Fi разетка
+</title>
+<style>
+#scheduler-configuration {
+display: none;
+}
+#time-configuration {
+display: none;
+}
+li {
+list-style-type: none;
+}
+ul {
+margin-left: 0;
+padding-left: 0;
+}
+</style>
+<script>
+function hideBloks() {
+var bloks = document.getElementsByTagName("div");
+for(var i =0; i <= bloks.length; i++) {
+if (bloks[i] != undefined) {
+if (bloks[i].id.indexOf("configuration") != -1) bloks[i].style.display = "none";
+}
+}
+}
+
+function configTime() {
+event.preventDefault();
+var year = document.forms[1].year.value;
+var month = document.forms[1].month.value;
+var day = document.forms[1].day.value;
+var hour = document.forms[1].hour.value;
+var minute = document.forms[1].minute.value;
+var url = "/time/set?year="+year+"&month="+month+"&day="+day+"&hour="+hour+"&minute="+minute;
+var request = new XMLHttpRequest();
+request.overrideMimeType("text/xml");
+request.open("GET", url, true);
+request.onreadystatechange = function() {
+if (request.readyState == 4) {
+if (request.status == 200) {
+alert("Время было успешно сконфигурировано");
+document.forms[1].reset();
+}
+else alert("Произошла ошибка при конфигурировании времени. Проверьте соединение с интернетом и повторите попытку");
+}
+}
+request.send(null);
+}
+
+function getSchedulerConfiguration() {
+var request = new XMLHttpRequest();
+request.overrideMimeType("text/xml");
+request.open("GET", "/scheduler", true);
+request.onreadystatechange = function() {
+if (request.readyState == 4) {
+if (request.status == 200) {
+var conf = JSON.parse(request.responseText);
+if (conf.controleSumm != 255) {
+var taskList = document.createElement("ol");
+var task = document.createElement("li");
+task.innerText = "Освещение цветов.";
+var taskParameters = document.createElement("ol");
+var startTime = document.createElement("li");
+var endTime = document.createElement("li");
+startTime.innerText = "Время запуска: "+conf.startHour+":"+conf.startMinute;
+endTime.innerText = "Время выключения: "+conf.endHour+":"+conf.endMinute;
+taskList.appendChild(task);
+task.appendChild(taskParameters);
+taskParameters.appendChild(startTime);
+taskParameters.appendChild(endTime);
+document.getElementById("show-tasks").innerText = "У вас есть следующие задачи: ";
+document.getElementById("show-tasks").appendChild(taskList);
+}
+}
+else alert("Не удалось получить список задач. Проверьте соединение с интернетом и повторите попытку.");
+}
+}
+request.send(null);
+}
+
+function configScheduler() {
+event.preventDefault();
+var request = new XMLHttpRequest();
+request.overrideMimeType("text/xml");
+var url = "/config/scheduler?startHour="+document.forms[0].startHour.value+"&startMinute="+document.forms[0].startMinute.value+"&endHour="+document.forms[0].endHour.value+"&endMinute="+document.forms[0].endMinute.value;
+request.open("GET", url, true);
+request.onreadystatechange = function() {
+if (request.readyState == 4) {
+if (request.status == 200) {
+alert("Планировщик задач успешно сконфигурирован");
+document.forms[0].reset();
+}
+else alert("Не удалось сконфигурировать планировщик задач. Проверьте соединение с интернетом и повторите попытку");
+}
+}
+request.send(null);
+}
+
+function getCurrentTime() {
+var request = new XMLHttpRequest();
+request.overrideMimeType("text/xml");
+request.open("GET", "/time/get");
+request.onreadystatechange = function() {
+if (request.readyState == 4 && request.status == 200) document.getElementById("time").innerText = request.responseText;
+}
+request.send(null);
+}
+
+function getState() {
+var request = new XMLHttpRequest();
+request.overrideMimeType("text/xml");
+request.open("GET", "/state", true);
+request.onreadystatechange = function() {
+if (request.readyState == 4 && request.status == 200) {
+var response = request.responseText;
+response = JSON.parse(response);
+if (response.state) {
+document.getElementById("state").innerText = "Нагрузка включена";
+document.getElementById("switch").innerText = "Выключить";
+}
+else {
+document.getElementById("state").innerText = "Нагрузка выключена";
+document.getElementById("switch").innerText = "Включить";
+}
+}
+}
+request.send(null);
+}
+
+function switchRelay() {
+var request = new XMLHttpRequest();
+request.overrideMimeType("text/xml");
+request.open("GET", "/switch");
+request.send(null);
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+
+document.getElementById("switch").addEventListener("click", switchRelay);
+
+setInterval(getState, 500);
+setInterval(getCurrentTime, 5000);
+getState();
+getCurrentTime();
+
+document.forms[0].addEventListener("submit", function() {
+configScheduler();
+getSchedulerConfiguration();
+}
+);
+
+document.getElementById("config-scheduler").addEventListener("click", function() {
+hideBloks();
+document.getElementById("scheduler-configuration").style.display = "inline";
+getSchedulerConfiguration();
+}
+);
+document.getElementById("config-time").addEventListener("click", function() {
+hideBloks();
+document.getElementById("time-configuration").style.display = "inline";
+}
+);
+
+document.forms[1].addEventListener("submit", configTime);
+}
+);
+</script>
+</head>
+<body>
+<h1> Умная Wi-Fi разетка </h1>
+<h2> Общая информация </h2>
+Текущее время: <span id="time"> </span> <br>
+<span id="state" aria-live="polite"> </span> <br>
+<button id="switch"> Переключатель </button>
+<nav>
+<h2> Главное меню </h2>
+<ul role="menu">
+<li role="menuitem"> <a href="#scheduler-configuration" id="config-scheduler"> Планировщик задач </a> </li>
+<li role="menuitem"> <a href="#time-configuration" id="config-time"> Настройка даты и времени </a> </li>
+</ul>
+</nav>
+<div id="scheduler-configuration">
+<h2 focus> Планировщик задач </h2>
+<div id="show-tasks">
+<h3> Созданные задачи </h3>
+У вас нет созданных задач. Для создания задачи, заполните форму ниже.
+</div>
+<form method="get" action="/config/scheduler">
+<fieldset>
+<span> Время запуска </span> <br>
+<label> Часы </label>
+<input type="text" name="startHour" placeholder="Часы"> <br>
+<label> Минуты </label>
+<input type="texdt" name="startMinute" placeholder="Минуты"> <br>
+</fieldset>
+<fieldset>
+<span> Время отключения </span> <br>
+<label> Часы </label>
+<input type="text" name="endHour" placeholder="Часы"> <br>
+<label> Минуты </label>
+<input type="text" name="endMinute" placeholder="Минуты"> <br>
+</fieldset>
+<input type="submit" value="Сохранить">
+</form>
+</div>
+<div id="time-configuration">
+<h2 focus> Настройка даты и времени </h2>
+<form method="get" action="/time/set">
+<label> Год </label>
+<input type="text" name="year" placeholder="Год"> <br>
+<label> Месяц </label>
+<select name="month" placeholder="Месяц">
+<option value="1"> январь </option>
+<option value="2"> февраль </option>
+<option value="3"> март </option>
+<option value="4"> апрель </option>
+<option value="5"> май </option>
+<option value="6"> июнь </option>
+<option value="7"> июль </option>
+<option value="8"> август </option>
+<option value="9"> сентябрь </option>
+<option value="10"> октябрь </option>
+<option value="11"> ноябрь </option>
+<option value="12"> декабрь </option>
+</select> <br>
+<label> День </label>
+<input type="text" name="day" placeholder="День"> <br>
+<label> Часы </label>
+<input type="text" name="hour" placeholder="Часы"> <br>
+<label> Минуты </label>
+<input type="text" name="minute" placeholder="Минуты"> <br>
+<input type="submit" value="Сохранить">
+</form>
+</body>
+</html>
